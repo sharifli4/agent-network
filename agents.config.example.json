@@ -1,0 +1,16 @@
+{
+  "agents": [
+    {
+      "name": "kenan",
+      "url": "http://localhost:3000",
+      "description": "Kenan's agent — works on the walks mobile API (NestJS)",
+      "bearerToken": "kenans-secret-token"
+    },
+    {
+      "name": "shahriyar",
+      "url": "http://192.168.1.50:3000",
+      "description": "Shahriyar's agent — works on the walks frontend (React Native)",
+      "bearerToken": "shahriyars-secret-token"
+    }
+  ]
+}

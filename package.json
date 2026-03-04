@@ -1,0 +1,26 @@
+{
+  "name": "agent-network",
+  "version": "0.1.0",
+  "description": "A2A protocol bridge for Claude Code agents to communicate with each other",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev:server": "tsx src/server/index.ts",
+    "dev:mcp": "tsx src/mcp/index.ts",
+    "start:server": "node dist/server/index.js",
+    "start:mcp": "node dist/mcp/index.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.66",
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "express": "^5.1.0",
+    "zod": "^4.0.0",
+    "dotenv": "^16.4.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}
