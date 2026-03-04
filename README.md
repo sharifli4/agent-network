@@ -1,15 +1,19 @@
 # agent-network
 
-A2A protocol bridge that lets Claude Code agents communicate with each other. Delegate tasks and query knowledge across friends' codebases via JSON-RPC 2.0 server + MCP tools.
+Let your Claude Code talk to your friend's Claude Code. Ask questions about their codebase or delegate coding tasks to their agent — all from your terminal.
 
 ```
 Your Claude Code  -->  MCP Server  -->  HTTP  -->  Friend's A2A Server  -->  Claude Agent SDK
      (ask_agent)       (stdio)         (a2a)       (Express)                (query())
 ```
 
-## Quick Start
+---
 
-### 1. Install
+## Step-by-Step Setup (You + One Friend)
+
+> Both you and your friend follow these steps on your own machines.
+
+### Step 1: Clone and install
 
 ```bash
 git clone git@github.com:sharifli4/agent-network.git
@@ -17,171 +21,239 @@ cd agent-network
 npm install
 ```
 
-### 2. Configure Your Server
+### Step 2: Generate your bearer token
 
-Copy and edit the environment file:
+This is your password — it protects your agent from unauthorized access.
+
+```bash
+openssl rand -hex 32
+```
+
+Save the output. You'll need it in the next step AND you'll share it with your friend.
+
+### Step 3: Create your `.env` file
 
 ```bash
 cp .env.example .env
 ```
 
+Edit `.env` with your values:
+
 ```env
 PORT=3000
-BEARER_TOKEN=your-secret-token-here
-AGENT_NAME=my-agent
-AGENT_DESCRIPTION=My Claude Code agent
-WORKING_DIRECTORY=/path/to/your/project
-ANTHROPIC_API_KEY=sk-ant-...
+BEARER_TOKEN=<paste your generated token here>
+AGENT_NAME=kenan
+AGENT_DESCRIPTION=Backend API agent (NestJS)
+WORKING_DIRECTORY=/home/kenan/repositories/my-project
+ANTHROPIC_API_KEY=sk-ant-your-key-here
 ```
 
-| Variable | Description |
-|----------|-------------|
-| `PORT` | Port for the A2A server (default: 3000) |
-| `BEARER_TOKEN` | Secret token that remote agents must provide to call your server |
-| `AGENT_NAME` | Your agent's display name |
-| `AGENT_DESCRIPTION` | Short description of what your agent knows about |
-| `WORKING_DIRECTORY` | The project directory your agent operates in |
-| `ANTHROPIC_API_KEY` | Your Anthropic API key for the Claude Agent SDK |
+**What each variable does:**
 
-### 3. Configure Remote Agents
+| Variable | What it is | Example |
+|----------|-----------|---------|
+| `PORT` | Port your server runs on | `3000` |
+| `BEARER_TOKEN` | Your token — share this with your friend | `a3f1b9c8e2d4...` |
+| `AGENT_NAME` | Your name | `kenan` |
+| `AGENT_DESCRIPTION` | What your codebase is about | `Backend API agent (NestJS)` |
+| `WORKING_DIRECTORY` | The project folder your agent can access | `/home/kenan/repos/my-project` |
+| `ANTHROPIC_API_KEY` | Your Anthropic API key | `sk-ant-...` |
 
-Copy and edit the agents config:
+### Step 4: Exchange info with your friend
+
+**Send your friend:**
+- Your IP address (run `ip addr | grep 'inet ' | grep -v 127.0.0.1`)
+- Your port (default `3000`)
+- Your bearer token
+
+**Get from your friend:**
+- Their IP address
+- Their port
+- Their bearer token
+
+### Step 5: Create `agents.config.json`
+
+This file tells your MCP tools where your friend's agent lives.
 
 ```bash
 cp agents.config.example.json agents.config.json
-chmod 600 agents.config.json  # keep tokens private
+chmod 600 agents.config.json
 ```
+
+Edit it with your **friend's** info:
 
 ```json
 {
   "agents": [
     {
-      "name": "kenan",
-      "url": "http://192.168.1.10:3000",
-      "description": "Kenan's agent — works on the backend API (NestJS)",
-      "bearerToken": "kenans-secret-token"
-    },
-    {
       "name": "shahriyar",
       "url": "http://192.168.1.50:3000",
-      "description": "Shahriyar's agent — works on the frontend (React Native)",
-      "bearerToken": "shahriyars-secret-token"
+      "description": "Frontend agent (React Native)",
+      "bearerToken": "token-your-friend-gave-you"
     }
   ]
 }
 ```
 
-Each entry is a friend's agent you want to talk to. The `bearerToken` is the token **they** gave you (matches their `BEARER_TOKEN` env var).
+You can add multiple friends — just add more entries to the `agents` array.
 
-### 4. Start the A2A Server
+### Step 6: Start your A2A server
 
 ```bash
 npm run dev:server
 ```
 
-Verify it's running:
+You should see:
 
-```bash
-curl http://localhost:3000/.well-known/agent.json
-curl http://localhost:3000/health
+```
+A2A server listening on port 3000
+Agent card: http://localhost:3000/.well-known/agent.json
+A2A endpoint: http://localhost:3000/a2a
 ```
 
-### 5. Add MCP Server to Claude Code
+**Verify it works:**
 
-Add to your Claude Code MCP settings (`~/.claude/settings.json`):
+```bash
+curl http://localhost:3000/health
+# {"status":"ok"}
+```
+
+### Step 7: Add MCP server to Claude Code
+
+Edit `~/.claude/settings.json` and add:
 
 ```json
 {
   "mcpServers": {
     "agent-network": {
       "command": "npx",
-      "args": ["tsx", "/absolute/path/to/agent-network/src/mcp/index.ts"],
+      "args": ["tsx", "/home/you/agent-network/src/mcp/index.ts"],
       "env": {
-        "AGENT_NETWORK_CONFIG": "/absolute/path/to/agent-network/agents.config.json"
+        "AGENT_NETWORK_CONFIG": "/home/you/agent-network/agents.config.json"
       }
     }
   }
 }
 ```
 
+> Replace `/home/you/agent-network` with your actual path.
+
+Restart Claude Code for the MCP server to load.
+
+### Step 8: Test the connection
+
+Before using Claude Code, verify you can reach your friend's server:
+
+```bash
+# Check their agent card
+curl http://<friends-ip>:3000/.well-known/agent.json
+
+# Send a test RPC call
+curl -X POST http://<friends-ip>:3000/a2a \
+  -H "Authorization: Bearer <token-they-gave-you>" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tasks/get","params":{"id":"test"}}'
+```
+
+If you get a JSON response (even an error like "Task not found"), the connection works.
+
+---
+
 ## Usage
 
-Once both the server and MCP are configured, you get three tools in Claude Code:
+Once everything is set up, you have **3 tools** available in Claude Code:
 
-### `list_agents`
+### 1. List your network
 
-Lists all remote agents in your network.
+> "Who can I talk to?"
 
-```
-> list_agents
-[
-  { "name": "shahriyar", "url": "http://192.168.1.50:3000", "description": "..." }
-]
-```
-
-### `ask_agent`
-
-Ask a read-only question about a friend's codebase. The remote agent can only read files — no modifications allowed.
+Just ask Claude Code to list agents, or it will call:
 
 ```
-> ask_agent agent_name="shahriyar" question="What state management library does the frontend use?"
+list_agents
 ```
 
-### `delegate_task`
+Returns all agents from your `agents.config.json`.
 
-Delegate a full coding task to a friend's agent. The remote agent can read and write files.
+### 2. Ask a question (read-only)
 
-```
-> delegate_task agent_name="shahriyar" task="Add a loading spinner to the login screen"
-```
-
-Set `wait=false` to submit without waiting for completion:
+> "Ask my friend about their codebase"
 
 ```
-> delegate_task agent_name="shahriyar" task="Refactor the auth module" wait=false
+ask shahriyar what authentication library the frontend uses
 ```
+
+Claude Code calls `ask_agent` under the hood. The remote agent can **only read** files — it cannot modify anything. Use this for:
+
+- "What framework does the frontend use?"
+- "How does their auth flow work?"
+- "What API endpoints does their app call?"
+- "What's the structure of their project?"
+
+### 3. Delegate a task (read + write)
+
+> "Tell my friend's agent to do something"
+
+```
+delegate to shahriyar: add a loading spinner to the login screen
+```
+
+Claude Code calls `delegate_task` under the hood. The remote agent can **read and write** files. Use this for:
+
+- "Add error handling to the API client"
+- "Create a new component for the settings page"
+- "Fix the bug in the checkout flow"
+- "Update the API response type to match the new backend schema"
+
+---
+
+## Networking
+
+Both machines must be able to reach each other over HTTP. Options:
+
+| Situation | Solution |
+|-----------|----------|
+| Same WiFi / LAN | Use local IP addresses (`192.168.x.x`) — works out of the box |
+| Different networks | Use [Tailscale](https://tailscale.com) or WireGuard for a private tunnel |
+| Quick test over internet | Use [ngrok](https://ngrok.com): `ngrok http 3000` gives a public URL |
+| Have a server | SSH tunnel: `ssh -R 3000:localhost:3000 your-server` |
+
+---
 
 ## How It Works
 
-**Two entry points in one package:**
+**A2A Server** (Express) — you host this on your machine. When a friend's agent sends a request, it:
+1. Authenticates the bearer token
+2. Creates a task
+3. Runs the Claude Agent SDK against your `WORKING_DIRECTORY`
+4. Returns the result
 
-- **A2A Server** (Express, port 3000) — each person hosts this on their machine. It receives tasks via JSON-RPC 2.0, authenticates with bearer tokens, and executes them using the Claude Agent SDK against the local codebase.
+**MCP Server** (stdio) — runs inside your Claude Code. Provides the 3 tools above. When you use a tool, it sends an HTTP request to your friend's A2A server.
 
-- **MCP Server** (stdio) — each person adds this to their Claude Code. It provides the three tools above, which call remote A2A servers over HTTP.
+**Security:**
+- `ask_agent` = read-only (tools: `Read`, `Glob`, `Grep`, `Bash`)
+- `delegate_task` = full access (adds: `Edit`, `Write`)
+- All requests require a valid bearer token
+- `agents.config.json` contains tokens — keep it private (`chmod 600`)
 
-**Security model:**
-
-- `ask_agent` enforces read-only at two levels: prompt instructions AND restricted tool set (`Read`, `Glob`, `Grep`, `Bash`)
-- `delegate_task` allows full tools: `Read`, `Glob`, `Grep`, `Bash`, `Edit`, `Write`
-- All A2A requests require a valid bearer token
-- Keep `agents.config.json` private (`chmod 600`) since it contains tokens
+---
 
 ## A2A Protocol
 
 The server implements a subset of the [A2A protocol](https://google.github.io/A2A/):
 
-| Endpoint | Method |
-|----------|--------|
-| `GET /.well-known/agent.json` | Agent card discovery |
+| Endpoint | Description |
+|----------|-------------|
+| `GET /.well-known/agent.json` | Agent card (name, description, capabilities) |
 | `GET /health` | Health check |
-| `POST /a2a` | JSON-RPC 2.0 (`message/send`, `tasks/get`) |
+| `POST /a2a` | JSON-RPC 2.0 — `message/send` and `tasks/get` |
 
 ## Scripts
 
-```bash
-npm run dev:server    # Start A2A server (development)
-npm run dev:mcp       # Start MCP server (development)
-npm run build         # Compile TypeScript
-npm run start:server  # Start compiled A2A server
-npm run start:mcp     # Start compiled MCP server
-```
-
-## Setup Between Two People
-
-1. **Both** clone the repo and run `npm install`
-2. **Both** create `.env` with their own `BEARER_TOKEN` and `WORKING_DIRECTORY`
-3. **Exchange** bearer tokens with each other
-4. **Both** create `agents.config.json` with each other's `url` + `bearerToken`
-5. **Both** start their A2A server: `npm run dev:server`
-6. **Both** add the MCP server to their Claude Code settings
-7. Start using `ask_agent` and `delegate_task` in Claude Code
+| Command | Description |
+|---------|-------------|
+| `npm run dev:server` | Start A2A server (development, with hot reload) |
+| `npm run dev:mcp` | Start MCP server (development) |
+| `npm run build` | Compile TypeScript to `dist/` |
+| `npm run start:server` | Start compiled A2A server |
+| `npm run start:mcp` | Start compiled MCP server |
