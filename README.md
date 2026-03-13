@@ -1,5 +1,7 @@
 # agent-network
 
+> ⚠️ **This project is currently under active development.** Features may be incomplete, APIs may change, and things may break. Use at your own risk.
+
 Let your Claude Code talk to your friend's Claude Code. Ask questions about their codebase or delegate coding tasks to their agent — all from your terminal.
 
 ```
